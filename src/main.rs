@@ -6,7 +6,6 @@ use  serde::{Deserialize, Serialize};
 use std::{io::{Write, stdin, stdout}, str::FromStr, time::{Instant, Duration}};
 use rand::{thread_rng, Rng};
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
 // use std::thread;
 // use serde_json::Value;
 
@@ -227,7 +226,6 @@ async fn main() {
                     for i in 0..num {
                         let lon = rng.gen_range(-180.0..180.0);
                         let lat = rng.gen_range(-85.05..85.05);
-                        let driver_id = format!("loc{}", i);
                         let data = UpdateDriverLocationRequest {
                             pt: Point {
                                 lon, 
@@ -248,8 +246,8 @@ async fn main() {
                     let mut dur = Duration::from_secs(0);
                     if num <= batch_size {
                         println!("single");
-                        let num = rng.gen_range(0..6);
-                        let token = match num {
+                        let num_gen = rng.gen_range(0..6);
+                        let token = match num_gen {
                             0 => "favorit-admin-0000000000000000-token",
                             1 => "favorit-auto1-0000000000000000-token",
                             2 => "favorit-auto2-0000000000000000-token",
@@ -257,7 +255,7 @@ async fn main() {
                             4 => "favorit-sedan-0000000000000000-token",
                             _ => "favorit-suv-000000000000000000-token",
                         };
-                        let vehicle_type = match num {
+                        let vehicle_type = match num_gen {
                             0 => "admin".to_string(),
                             1 => "auto1".to_string(),
                             2 => "auto2".to_string(),
@@ -274,8 +272,8 @@ async fn main() {
                         let num_new = num / batch_size;
                         let start = Instant::now();
                         for i in 0..num_new {
-                            let num = rng.gen_range(0..6);
-                            let token = match num {
+                            let num_gen = rng.gen_range(0..6);
+                            let token = match num_gen {
                                 0 => "favorit-admin-0000000000000000-token",
                                 1 => "favorit-auto1-0000000000000000-token",
                                 2 => "favorit-auto2-0000000000000000-token",
@@ -283,7 +281,7 @@ async fn main() {
                                 4 => "favorit-sedan-0000000000000000-token",
                                 _ => "favorit-suv-000000000000000000-token",
                             };
-                            let vehicle_type = match num {
+                            let vehicle_type = match num_gen {
                                 0 => "admin".to_string(),
                                 1 => "auto1".to_string(),
                                 2 => "auto2".to_string(),
