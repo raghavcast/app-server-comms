@@ -96,7 +96,7 @@ async fn main() {
     let client = reqwest::Client::new();
     let mut rng = thread_rng();
     loop {
-        println!("1. get_drivers\n2. default send driver\n3. call actual endpoint\n4. Start ride enpoint\n5. End ride endpoint\n6. Default actual endpoints\n0. End");
+        println!("1. get_drivers\n2. default send driver\n3. call actual endpoint\n4. Start ride enpoint\n5. End ride endpoint\n6. Default actual endpoints\n7. On Ride testing\n0. End");
         let mut inp = String::new();
         stdin().read_line(&mut inp).unwrap(); 
         match inp.trim().parse::<i64>() {
@@ -190,8 +190,8 @@ async fn main() {
                     };
                     send_actual_loc(vec![data], client.clone(), token, m_id, vt).await;
                 } else if x == 4 {
-                    let lon = rng.gen_range(-180.0..180.0);
-                    let lat = rng.gen_range(-85.05..85.05);
+                    let lon = rng.gen_range(75.0..76.5);
+                    let lat = rng.gen_range(13.0..16.5);
                     let driver_id = "favorit-suv-000000000000000000000000".to_string();
                     let merchant_id = "favorit0-0000-0000-0000-00000favorit".to_string();
                     let data = RideStartRequest {
@@ -203,8 +203,8 @@ async fn main() {
                     let ride_id = "1234";
                     send_start_req(data, client.clone(), ride_id).await;
                 } else if x == 5 {
-                    let lon = rng.gen_range(-180.0..180.0);
-                    let lat = rng.gen_range(-85.05..85.05);
+                    let lon = rng.gen_range(75.0..76.5);
+                    let lat = rng.gen_range(13.0..16.5);
                     let driver_id = "favorit-suv-000000000000000000000000".to_string();
                     let merchant_id = "favorit0-0000-0000-0000-00000favorit".to_string();
                     let data = RideEndRequest {
@@ -223,27 +223,38 @@ async fn main() {
                 } else if x == 6 {  
                     let mut list: Vec<UpdateDriverLocationRequest> = Vec::new();
                     let num = get_inp::<usize>("num of points");
-                    for i in 0..num {
-                        let lon = rng.gen_range(-180.0..180.0);
-                        let lat = rng.gen_range(-85.05..85.05);
-                        let data = UpdateDriverLocationRequest {
-                            pt: Point {
-                                lon, 
-                                lat
-                            },
-                            acc: 1,
-                           ts: Utc::now(),
-                        };
-                        list.push(data);
+                    let batch_size = get_inp::<usize>("batch size");
+                    for _i in 0..num {
+                        let mut lon: f64;
+                        let mut lat: f64;
+                        let region_num = rng.gen_range(0..2);
+                        for j in 0..batch_size {
+                            if region_num == 1 {
+                                lon = rng.gen_range(75.0..76.5);
+                                lat = rng.gen_range(13.0..16.5);
+                            }
+                            else {
+                                lon = rng.gen_range(76.5..77.0);
+                                lat = rng.gen_range(9.5..10.0);
+                            }
+                            let data = UpdateDriverLocationRequest {
+                                pt: Point {
+                                    lon, 
+                                    lat
+                                },
+                                acc: 1,
+                            ts: Utc::now(),
+                            };
+                            list.push(data);
+                        }
                         // println!("{:?}", data);
                         
                         // thread::sleep(Duration::from_millis(10));
                     }
                     
                     let merchant_id = "favorit0-0000-0000-0000-00000favorit".to_string();
-
-                    let batch_size = get_inp::<usize>("batch size");
                     let mut dur = Duration::from_secs(0);
+                    println!("starting");
                     if num <= batch_size {
                         println!("single");
                         let num_gen = rng.gen_range(0..6);
@@ -298,6 +309,22 @@ async fn main() {
                         println!("Duration: {:?}", duration);
                     }
                     println!("Time Taken: {:?}", dur);
+                } else if x == 7 {
+                    let lon = rng.gen_range(75.0..76.5);
+                    let lat = rng.gen_range(13.0..16.5);
+                    let token = "favorit-suv-000000000000000000-token";
+                    let vehicle_type = "suv".to_string();
+                    let merchant_id = "favorit0-0000-0000-0000-00000favorit".to_string();
+                    let data = UpdateDriverLocationRequest {
+                        pt: Point {
+                            lon, 
+                            lat,
+                        },
+                        ts: Utc::now(),
+                        acc: 1,
+                    };
+                    let _ = send_actual_loc(vec![data], client.clone(), token, merchant_id, vehicle_type).await;
+                    
                 } else if x == 0 {
                     break;
                 }
@@ -369,9 +396,16 @@ async fn send_actual_loc(data: Vec<UpdateDriverLocationRequest>, client: reqwest
         .header("mId", m_id)
         .body(json)
         .send()
-        .await;
-
-    serde_json::from_str::<DurationStruct>(&body.unwrap().text().await.unwrap()).unwrap().dur
+        .await
+        .unwrap();
+    let status = body.status();
+    let response_body = body.text().await.unwrap();
+    if status != 200 {
+        // println!("{response_body}");
+        Duration::from_secs(0)
+    } else {
+        serde_json::from_str::<DurationStruct>(&response_body).unwrap().dur
+    }
 }
 
 // driver-id: favorit-suv-000000000000000000000000
