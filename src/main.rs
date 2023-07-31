@@ -6,6 +6,7 @@ use  serde::{Deserialize, Serialize};
 use std::{io::{Write, stdin, stdout}, str::FromStr, time::{Instant, Duration}};
 use rand::{thread_rng, Rng};
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 // use std::thread;
 // use serde_json::Value;
 
@@ -181,8 +182,8 @@ async fn main() {
                         2 => "suv".to_string(),
                         _ => "sedan".to_string(),                    
                     };
-                    let token = 1234;
-                    let m_id = "Namma Yatri".to_string();
+                    let token = "3ab7efd4-961e-432a-835d-4d36caa042cb";
+                    let m_id = "favorit0-0000-0000-0000-00000favorit".to_string();
                     let data = UpdateDriverLocationRequest {
                         pt: Point { lat, lon },
                         ts,
@@ -192,8 +193,8 @@ async fn main() {
                 } else if x == 4 {
                     let lon = rng.gen_range(-180.0..180.0);
                     let lat = rng.gen_range(-85.05..85.05);
-                    let driver_id = get_inp::<String>("driver_id");
-                    let merchant_id = "Namma Yatri".to_string();
+                    let driver_id = "favorit-suv-000000000000000000000000".to_string();
+                    let merchant_id = "favorit0-0000-0000-0000-00000favorit".to_string();
                     let data = RideStartRequest {
                         lon,
                         lat,
@@ -205,8 +206,8 @@ async fn main() {
                 } else if x == 5 {
                     let lon = rng.gen_range(-180.0..180.0);
                     let lat = rng.gen_range(-85.05..85.05);
-                    let driver_id = get_inp::<String>("driver_id");
-                    let merchant_id = "Namma Yatri".to_string();
+                    let driver_id = "favorit-suv-000000000000000000000000".to_string();
+                    let merchant_id = "favorit0-0000-0000-0000-00000favorit".to_string();
                     let data = RideEndRequest {
                         lon,
                         lat,
@@ -221,7 +222,84 @@ async fn main() {
                         .unwrap();
                     println!("resp: {:?}", resp);
                 } else if x == 6 {  
-                    todo!();
+                    let mut list: Vec<UpdateDriverLocationRequest> = Vec::new();
+                    let num = get_inp::<usize>("num of points");
+                    for i in 0..num {
+                        let lon = rng.gen_range(-180.0..180.0);
+                        let lat = rng.gen_range(-85.05..85.05);
+                        let driver_id = format!("loc{}", i);
+                        let data = UpdateDriverLocationRequest {
+                            pt: Point {
+                                lon, 
+                                lat
+                            },
+                            acc: 1,
+                           ts: Utc::now(),
+                        };
+                        list.push(data);
+                        // println!("{:?}", data);
+                        
+                        // thread::sleep(Duration::from_millis(10));
+                    }
+                    
+                    let merchant_id = "favorit0-0000-0000-0000-00000favorit".to_string();
+
+                    let batch_size = get_inp::<usize>("batch size");
+                    let mut dur = Duration::from_secs(0);
+                    if num <= batch_size {
+                        println!("single");
+                        let num = rng.gen_range(0..6);
+                        let token = match num {
+                            0 => "favorit-admin-0000000000000000-token",
+                            1 => "favorit-auto1-0000000000000000-token",
+                            2 => "favorit-auto2-0000000000000000-token",
+                            3 => "favorit-hatchback-000000000000-token",
+                            4 => "favorit-sedan-0000000000000000-token",
+                            _ => "favorit-suv-000000000000000000-token",
+                        };
+                        let vehicle_type = match num {
+                            0 => "admin".to_string(),
+                            1 => "auto1".to_string(),
+                            2 => "auto2".to_string(),
+                            3 => "hatchback".to_string(),
+                            4 => "sedan".to_string(),
+                            _ => "suv".to_string(),
+                        };
+                        let start = Instant::now();
+                        dur += send_actual_loc(list, client.clone(), token, merchant_id, vehicle_type).await;
+                        let duration = start.elapsed();
+                        println!("Duration: {:?}", duration);
+                    }
+                    else {
+                        let num_new = num / batch_size;
+                        let start = Instant::now();
+                        for i in 0..num_new {
+                            let num = rng.gen_range(0..6);
+                            let token = match num {
+                                0 => "favorit-admin-0000000000000000-token",
+                                1 => "favorit-auto1-0000000000000000-token",
+                                2 => "favorit-auto2-0000000000000000-token",
+                                3 => "favorit-hatchback-000000000000-token",
+                                4 => "favorit-sedan-0000000000000000-token",
+                                _ => "favorit-suv-000000000000000000-token",
+                            };
+                            let vehicle_type = match num {
+                                0 => "admin".to_string(),
+                                1 => "auto1".to_string(),
+                                2 => "auto2".to_string(),
+                                3 => "hatchback".to_string(),
+                                4 => "sedan".to_string(),
+                                _ => "suv".to_string(),
+                            };
+                            let start = i * batch_size;
+                            let mut end = (i + 1) * batch_size;
+                            end = if end > num {num} else {end};
+                            dur += send_actual_loc(list[start..end].to_vec(), client.clone(), token, merchant_id.clone(), vehicle_type.clone()).await;
+                        }
+                        let duration = start.elapsed();
+                        println!("Duration: {:?}", duration);
+                    }
+                    println!("Time Taken: {:?}", dur);
                 } else if x == 0 {
                     break;
                 }
@@ -282,10 +360,10 @@ async fn send_loc(data: Vec<DriverData>, client: reqwest::Client) -> Duration {
     serde_json::from_str::<DurationStruct>(&body.unwrap().text().await.unwrap()).unwrap().dur 
 }
 
-async fn send_actual_loc(data: Vec<UpdateDriverLocationRequest>, client: reqwest::Client, token: u64, m_id: String, vt: String) {
+async fn send_actual_loc(data: Vec<UpdateDriverLocationRequest>, client: reqwest::Client, token: &str, m_id: String, vt: String) -> Duration {
     let json = serde_json::to_string(&data).unwrap();
     // println!("{}", json);
-    let _body = client
+    let body = client
         .post(format!("{}/ui/driver/location", HOST_URL))
         .header(CONTENT_TYPE, "application/json")
         .header("token", token)
@@ -294,7 +372,12 @@ async fn send_actual_loc(data: Vec<UpdateDriverLocationRequest>, client: reqwest
         .body(json)
         .send()
         .await;
+
+    serde_json::from_str::<DurationStruct>(&body.unwrap().text().await.unwrap()).unwrap().dur
 }
+
+// driver-id: favorit-suv-000000000000000000000000
+
 
 async fn get_drivers(data: GetNearbyDriversRequest, client: reqwest::Client) -> reqwest::Response {
     let json = serde_json::to_string(&data).unwrap();
